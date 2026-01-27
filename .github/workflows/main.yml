@@ -95,6 +95,8 @@ jobs:
       - name: Install VLC Player
         run: |
           Write-Host "Installing VLC for best video playback..." -ForegroundColor Green
+          
+          # Correct VLC installation for Windows
           $vlcUrl = "https://get.videolan.org/vlc/3.0.20/win64/vlc-3.0.20-win64.exe"
           $vlcPath = "$env:TEMP\vlc-install.exe"
           
