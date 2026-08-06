@@ -57,81 +57,10 @@ jobs:
               exit 1
           }
 
-      - name: Video Performance Optimization
-        run: |
-          Write-Host "Starting video performance optimization..." -ForegroundColor Yellow
-          
-          # Enable H.264/AVC Hardware Encoding (even without hardware)
-          New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Force
-          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
-            -Name "AVCHardwareEncodePreferred" -Value 1 -Force
-          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
-            -Name "AVC444ModePreferred" -Value 1 -Force
-          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
-            -Name "EnableHardwareMode" -Value 1 -Force
-          
-          # Set maximum color depth and frame rate
-          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
-            -Name "MaxColorDepth" -Value 4 -Force  # 32-bit color
-          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" `
-            -Name "MaxMonitorCount" -Value 1 -Force
-          
-          # Optimize network settings
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-            -Name "MinEncryptionLevel" -Value 0 -Force  # Reduce encryption for speed
-          
-          # Enable persistent bitmap caching
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-            -Name "fEnablePersistentBitmapCaching" -Value 1 -Force
-          
-          # Disable wallpaper and themes for better performance
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' `
-            -Name "fNoRemoteDesktopWallpaper" -Value 1 -Force
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' `
-            -Name "fDisable Themes" -Value 1 -Force
-          
-          Write-Host "Video optimization applied (but hardware limitations remain)" -ForegroundColor Yellow
-
-      - name: Install VLC Player
-        run: |
-          Write-Host "Installing VLC for best video playback..." -ForegroundColor Green
-          
-          # Correct VLC installation for Windows
-          $vlcUrl = "https://get.videolan.org/vlc/3.0.20/win64/vlc-3.0.20-win64.exe"
-          $vlcPath = "$env:TEMP\vlc-install.exe"
-          
-          Invoke-WebRequest -Uri $vlcUrl -OutFile $vlcPath
-          Start-Process $vlcPath -ArgumentList "/S", "/NCRC" -Wait
-          Remove-Item $vlcPath -Force
-          
-          # Configure VLC for low-resource playback
-          $vlcConfig = @"
-[audio]
-audio-output=waveout
-
-[video]
-deinterlace=-1
-deinterlace-mode=blend
-ffmpeg-hw
-
-[core]
-caching=5000
-network-caching=5000
-
-[stream_out]
-stream-out-aviaudio-sync
-"@
-          
-          $configDir = "$env:APPDATA\vlc"
-          New-Item -Path $configDir -ItemType Directory -Force
-          $vlcConfig | Out-File "$configDir\vlcrc" -Encoding ASCII
-          
-          Write-Host "VLC installed and configured" -ForegroundColor Green
-
       - name: Install Tailscale
         run: |
           $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
-          $installerPath = "$env:TEMP\tailscale.msi"
+          $installerPath = "$env:TEMP	ailscale.msi"
           
           Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
           Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
@@ -140,13 +69,13 @@ stream-out-aviaudio-sync
       - name: Establish Tailscale Connection
         run: |
           # Bring up Tailscale with the provided auth key and set a unique hostname
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          & "$env:ProgramFiles\Tailscale	ailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
           
           # Wait for Tailscale to assign an IP
           $tsIP = $null
           $retries = 0
           while (-not $tsIP -and $retries -lt 10) {
-              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              $tsIP = & "$env:ProgramFiles\Tailscale	ailscale.exe" ip -4
               Start-Sleep -Seconds 5
               $retries++
           }
@@ -169,43 +98,6 @@ stream-out-aviaudio-sync
           }
           Write-Host "TCP connectivity successful!"
 
-      - name: Setup Sample Video for Testing
-        run: |
-          # Create a test video file (low resolution for testing)
-          Write-Host "Creating sample test video..." -ForegroundColor Cyan
-          
-          # Method 1: Download a small test video
-          try {
-              $testVideoUrl = "https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4"
-              $videoPath = "C:\test_video.mp4"
-              Invoke-WebRequest -Uri $testVideoUrl -OutFile $videoPath -TimeoutSec 30
-              Write-Host "Test video downloaded to: $videoPath" -ForegroundColor Green
-          }
-          catch {
-              Write-Host "Could not download test video. Create a test file manually." -ForegroundColor Yellow
-              # Create empty placeholder
-              "Test video file - use your own video" | Out-File "C:\test_video.txt"
-          }
-          
-          # Create desktop shortcut for easy access
-          $shortcutPath = "$env:USERPROFILE\Desktop\Play Test Video.lnk"
-          $WshShell = New-Object -ComObject WScript.Shell
-          $Shortcut = $WshShell.CreateShortcut($shortcutPath)
-          $Shortcut.TargetPath = "C:\Program Files\VideoLAN\VLC\vlc.exe"
-          $Shortcut.Arguments = "C:\test_video.mp4"
-          $Shortcut.Save()
-
-      - name: Mobile Connection Guide
-        run: |
-          Write-Host "`n=== IMPORTANT VIDEO PERFORMANCE GUIDE ===" -ForegroundColor Red
-          Write-Host "WARNING: Video playback will STILL LAG due to:" -ForegroundColor Yellow
-          Write-Host "1. No GPU hardware in GitHub Actions" -ForegroundColor Yellow
-          Write-Host "2. RDP is screen capture, not video streaming" -ForegroundColor Yellow
-          Write-Host "3. Double compression (video + RDP)" -ForegroundColor Yellow
-          Write-Host "`nFor 100% smooth video:" -ForegroundColor Green
-          Write-Host "Use Plex/Jellyfin/VLC HTTP stream instead" -ForegroundColor Green
-          Write-Host "=========================================`n"
-
       - name: Maintain Connection
         run: |
           Write-Host "`n=== RDP ACCESS ==="
@@ -214,19 +106,8 @@ stream-out-aviaudio-sync
           Write-Host "Password: $(echo $env:RDP_CREDS)"
           Write-Host "==================`n"
           
-          Write-Host "Mobile RDP App Settings for Better Video:" -ForegroundColor Cyan
-          Write-Host "1. Display → Color Depth: High Color (32-bit)"
-          Write-Host "2. Display → Resolution: 1280x720"
-          Write-Host "3. Display → Optimize for 3D graphics: ON"
-          Write-Host "4. Experience → Performance: High-speed broadband"
-          Write-Host "5. Experience → Persistent bitmap caching: ON"
-          Write-Host "6. Advanced → Use hardware encoding: ON"
-          Write-Host "`nTest Video Path: C:\test_video.mp4" -ForegroundColor Green
-          Write-Host "VLC Desktop Shortcut Available" -ForegroundColor Green
-          
           # Keep runner active indefinitely (or until manually cancelled)
           while ($true) {
-              Write-Host "[$(Get-Date)] RDP Active - Video Optimized Mode"
-              Write-Host "Note: Video may still lag due to GitHub infrastructure"
+              Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
               Start-Sleep -Seconds 300
           }
